@@ -42,7 +42,50 @@ def main():
         canonical_match = re.search(r'<link[^>]*rel="canonical"[^>]*href="([^"]+)"[^>]*>', link_content)
         canonical = canonical_match.group(1) if canonical_match else link_url
 
-        # 5) Extragem conținutul dintre <!-- ARTICOL START --> și <!-- ARTICOL FINAL -->
+        # 5) Afișăm primele 500 de caractere pentru debugging
+        print("Primele 500 caractere din link_content:")
+        print(link_content[:500])
+
+        # Încercăm să găsim data direct, folosind un pattern mai general
+        date_pattern = r'(On\s+\w+\s+\d{1,2},\s+\d{4})'
+        date_match = re.search(date_pattern, link_content)
+
+        if date_match:
+            date_info = date_match.group(1)
+            print(f"S-a extras data: {date_info}")
+
+            # Încercăm să găsim autorul în apropiere
+            # Căutăm în jurul datei
+            surrounding_text = link_content[max(0, date_match.start() - 100):min(len(link_content), date_match.end() + 200)]
+            author_pattern = r'by\s+([\w\s]+)'
+            author_match = re.search(author_pattern, surrounding_text)
+
+            if author_match:
+                author_info = author_match.group(1).strip()
+            else:
+                author_info = "Neculai Fantanaru"
+
+            date_author_info = f"{date_info}, by {author_info}"
+            print(f"Informații complete: {date_author_info}")
+        else:
+            print("Nu s-a găsit formatul de dată în conținutul paginii.")
+
+            # Verificăm dacă există orice mențiune a unei date în format similar
+            alt_date_pattern = r'(\d{1,2}\s+\w+\s+\d{4})'
+            alt_date_match = re.search(alt_date_pattern, link_content)
+
+            if alt_date_match:
+                print(f"S-a găsit o dată în alt format: {alt_date_match.group(1)}")
+
+            # Să vedem dacă există cuvântul 'Martie' în pagină
+            if 'Martie' in link_content:
+                print("Cuvântul 'Martie' există în pagină.")
+                index = link_content.find('Martie')
+                print(f"Context: {link_content[max(0, index-30):min(len(link_content), index+30)]}")
+
+            sys.exit(1)
+
+        # 6) Extragem conținutul articolului
         article_pattern = r'<!-- ARTICOL START -->([\s\S]*?)<!-- ARTICOL FINAL -->'
         article_match = re.search(article_pattern, link_content)
         if not article_match:
@@ -50,18 +93,6 @@ def main():
             sys.exit(0)
 
         article_content = article_match.group(1)
-
-        # 6) Extragem data și autorul din conținutul articolului
-        date_author_pattern = r'<td class="text_dreapta">(.*?)</td>'
-        date_author_match = re.search(date_author_pattern, article_content)
-        date_author_info = ""
-        if date_author_match:
-            date_author_info = date_author_match.group(1)
-            print(f"S-au extras informațiile despre dată și autor: {date_author_info}")
-        else:
-            # Dacă nu găsim informațiile, folosim un text default
-            date_author_info = "On Martie 13, 2025, by Neculai Fantanaru"
-            print("Nu s-au găsit informații despre dată și autor, se folosește textul default")
 
         # 7) Eliminăm tabelul cu titlu și informații din conținutul articolului
         table_pattern = r'<table[^>]*>.*?</table>'
@@ -75,22 +106,39 @@ def main():
         # - <em> rămâne italic
 
         # Înlocuim paragrafele text_obisnuit2 cu <strong>
+        # h3 class="text_obisnuit2" => <p style="font-weight: bold; color: #000; font-size:14px;">...</p>
+        article_content = re.sub(
+            r'<h3 class="text_obisnuit2">(.*?)</h3>',
+            r'<p style="font-weight: bold; color: #000; font-size:12px;">\1</p>',
+            article_content,
+            flags=re.DOTALL
+        )
+
+        # p class="text_obisnuit2" => <p style="font-weight: bold; color: #000; font-size:14px;">...</p>
         article_content = re.sub(
             r'<p class="text_obisnuit2">(.*?)</p>',
-            r'<p><strong>\1</strong></p>',
+            r'<p style="font-weight: bold; color: #000; font-size:12px;">\1</p>',
             article_content,
             flags=re.DOTALL
         )
 
-        # Înlocuim span-urile text_obisnuit2 din interiorul paragrafelor cu <strong>
+        # H2 class="text_obisnuit2" => <p style="font-weight: bold; color: #000; font-size:14px;">...</p>
+        article_content = re.sub(
+            r'<h2 class="text_obisnuit2">(.*?)</p>',
+            r'<p style="font-weight: bold; color: #000; font-size:12px;">\1</p>',
+            article_content,
+            flags=re.DOTALL
+        )
+
+        # span class="text_obisnuit2" => <span style="font-weight: bold; color: #000;">...</span>
         article_content = re.sub(
             r'<span class="text_obisnuit2">(.*?)</span>',
-            r'<strong>\1</strong>',
+            r'<span style="font-weight: bold; color: #000; font-size:12px;">\1</span>',
             article_content,
             flags=re.DOTALL
         )
 
-        # Înlocuim paragrafele text_obisnuit cu <p> normal
+        # p class="text_obisnuit" => <p>...</p>
         article_content = re.sub(
             r'<p class="text_obisnuit">(.*?)</p>',
             r'<p>\1</p>',
@@ -162,9 +210,9 @@ def main():
                 f.write(online_html)
 
             # 15) Trimitem email cu versiunea finală
-            sender_email = 'YOUR-EMAIL@gmail.com'
-            sender_password = 'PASS'            #  VECHE  'iwpd jzqa wwpp jgxs'  #  NU E PAROLA TA ORIGINALA In the "Two-step authentication" section
-            receiver_emails = ['other-email@gmail.com', 'other-email@gmail.com']
+            sender_email = 'ioan.fantanaru@gmail.com'
+            sender_password = 'PASSWORD'    #  VECHE  'iwpd jzqa wwpp jgxs'  #  NU E PAROLA TA ORIGINALA In the "Two-step authentication" section
+            receiver_emails = ['neculai.fantanaru@gmail.com', 'me.suzana@gmail.com']
 
             message = MIMEMultipart()
             message['From'] = sender_email
