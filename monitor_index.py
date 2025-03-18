@@ -79,26 +79,26 @@ def main():
     exists_online = is_link_online(link)
     print(f"Link-ul există online: {'DA' if exists_online else 'NU'}")
 
-    # Dacă link-ul nu există online, rulăm PERFECTO
-    if not exists_online:
-        print("\nArticolul există doar local și nu este publicat online!")
-        print("Se procedează la trimiterea prin email...")
+    # Actualizăm fișierul link-actual.txt cu noul link
+    try:
+        with open("link-actual.txt", "r", encoding="utf-8") as file:
+            existing_links = file.read().splitlines()
+    except:
+        existing_links = []
 
-        # Actualizăm fișierul link-actual.txt cu noul link
-        try:
-            with open("link-actual.txt", "r", encoding="utf-8") as file:
-                existing_links = file.read().splitlines()
-        except:
-            existing_links = []
+    if link not in existing_links:
+        with open("link-actual.txt", "w", encoding="utf-8") as file:
+            file.write(link + "\n" + "\n".join(existing_links))
+        print(f"Link-ul a fost adăugat în fișierul link-actual.txt")
 
-        if link not in existing_links:
-            with open("link-actual.txt", "w", encoding="utf-8") as file:
-                file.write(link + "\n" + "\n".join(existing_links))
-
-        # Rulăm PERFECTO pentru a trimite email
-        run_perfecto()
+    # Trimitem email în toate cazurile
+    if exists_online:
+        print("\nArticolul există online. Se trimite totuși email...")
     else:
-        print("\nArticolul există deja online. Nu este necesară nicio acțiune.")
+        print("\nArticolul există doar local și nu este publicat online! Se trimite email...")
+
+    # Rulăm PERFECTO pentru a trimite email
+    run_perfecto()
 
 if __name__ == "__main__":
     main()
